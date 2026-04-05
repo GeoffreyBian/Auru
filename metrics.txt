@@ -1,0 +1,5 @@
+Cadence: 217.6 steps/min
+Vertical Oscillation: 0.6043
+Symmetry Score: 1
+Approximate Stride Length: 0.50 m
+No fatigue detected
