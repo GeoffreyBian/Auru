@@ -7,13 +7,8 @@ FPS = 30
 WINDOW_SEC = 10
 WINDOW_FRAMES = FPS * WINDOW_SEC
 
-# Replace with runner height in meters if you want rough stride length estimates
 RUNNER_HEIGHT_M = 1.75
-
-# Approximate number of image-heights corresponding to body height.
-# Used only for crude stride-length estimate.
 BODY_SCALE = 1.0
-
 
 df = pd.read_csv("output.csv")
 

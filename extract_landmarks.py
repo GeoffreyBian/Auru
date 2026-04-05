@@ -1,5 +1,4 @@
 import cv2
-# If `mp.solutions.pose` fails on newer MediaPipe installs, use:
 from mediapipe.python.solutions import pose as mp_pose_module
 import pandas as pd
 

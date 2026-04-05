@@ -1,12 +1,11 @@
 import cv2
-# If `mp.solutions.pose` fails on newer MediaPipe installs, use:
 from mediapipe.python.solutions import pose as mp_pose_module
+from mediapipe.python.solutions import drawing_utils as mp_draw
 
 VIDEO_PATH = "input.mp4"
 OUTPUT_VIDEO = "annotated.mp4"
 
 mp_pose = mp_pose_module
-from mediapipe.python.solutions import drawing_utils as mp_draw
 
 pose = mp_pose.Pose(
     static_image_mode=False,
