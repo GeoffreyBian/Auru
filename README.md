@@ -10,9 +10,14 @@ Autonomous Runner is a computer vision platform that transforms standard running
 - **Fatigue Detection:** Monitors cadence drift over time using a sliding window algorithm to identify performance drop-offs.
 - **Visual Reports:** Generates annotated videos and analytical plots for performance review.
 
-## Visuals
+## Visuals 
 
 The platform processes raw video input to identify key gait landmarks and provides an annotated overlay for form correction.
+
+### **In-Action Tracking**
+![Autonomous Runner Demo](assets/annotated.gif)
+
+### **Gait Landmark Comparison**
 
 | Input Frame | Annotated Pose Tracking |
 | :---: | :---: |
