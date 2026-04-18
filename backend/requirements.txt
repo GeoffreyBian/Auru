@@ -1,0 +1,13 @@
+fastapi==0.115.12
+uvicorn[standard]==0.34.2
+python-multipart==0.0.20
+pydantic==2.11.3
+
+# Computer Vision
+mediapipe==0.10.33
+opencv-python==4.13.0.92
+numpy==2.4.4
+
+# Data / signal processing
+pandas==3.0.2
+scipy==1.17.1
