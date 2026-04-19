@@ -39,5 +39,6 @@ export interface RunResult {
   hip_y_over_time: TimeSeriesPoint[];
   left_ankle_y_over_time: TimeSeriesPoint[];
   right_ankle_y_over_time: TimeSeriesPoint[];
+  annotated_video_ready: boolean;
   error?: string | null;
 }

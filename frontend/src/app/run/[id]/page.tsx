@@ -3,8 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, RefreshCw } from "lucide-react";
-import { getRun, videoUrl } from "@/lib/api";
+import { ArrowLeft, RefreshCw, Video, Layers, Loader2 } from "lucide-react";
+import clsx from "clsx";
+import { getRun, videoUrl, annotatedVideoUrl } from "@/lib/api";
 import type { RunResult } from "@/lib/types";
 import MetricCard from "@/components/MetricCard";
 import RunChart from "@/components/RunChart";
@@ -41,11 +42,65 @@ function voStatus(v: number): "good" | "warn" | "bad" | "neutral" {
   return "bad";
 }
 
+// ---------------------------------------------------------------------------
+// Video mode toggle
+// ---------------------------------------------------------------------------
+type VideoMode = "original" | "annotated";
+
+function VideoToggle({
+  mode,
+  onChange,
+  annotatedReady,
+}: {
+  mode: VideoMode;
+  onChange: (m: VideoMode) => void;
+  annotatedReady: boolean;
+}) {
+  return (
+    <div className="flex items-center gap-1 rounded-lg border border-zinc-800 bg-zinc-900 p-1 w-fit">
+      <button
+        onClick={() => onChange("original")}
+        className={clsx(
+          "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all",
+          mode === "original"
+            ? "bg-zinc-700 text-zinc-100"
+            : "text-zinc-500 hover:text-zinc-300",
+        )}
+      >
+        <Video className="h-3.5 w-3.5" />
+        Original
+      </button>
+      <button
+        onClick={() => annotatedReady && onChange("annotated")}
+        disabled={!annotatedReady}
+        className={clsx(
+          "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all",
+          !annotatedReady && "cursor-not-allowed opacity-50",
+          mode === "annotated" && annotatedReady
+            ? "bg-emerald-800/60 text-emerald-200"
+            : "text-zinc-500 hover:text-zinc-300",
+        )}
+      >
+        {!annotatedReady ? (
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        ) : (
+          <Layers className="h-3.5 w-3.5" />
+        )}
+        {annotatedReady ? "Annotated" : "Annotating…"}
+      </button>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Main page
+// ---------------------------------------------------------------------------
 export default function RunPage() {
   const params = useParams<{ id: string }>();
   const runId = params.id;
   const [result, setResult] = useState<RunResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [videoMode, setVideoMode] = useState<VideoMode>("original");
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchRun = async () => {
@@ -64,7 +119,9 @@ export default function RunPage() {
   useEffect(() => {
     fetchRun();
     intervalRef.current = setInterval(fetchRun, POLL_INTERVAL_MS);
-    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
   }, [runId]);
 
   if (error) {
@@ -90,11 +147,15 @@ export default function RunPage() {
   const isFailed = result.status === "failed";
   const m = result.metrics;
 
-  // Build fatigue reference lines for cadence chart
   const fatigueRef =
     m?.fatigue_time_sec != null
       ? [{ x: m.fatigue_time_sec, label: "Fatigue", color: "#f97316" }]
       : [];
+
+  const activeSrc =
+    videoMode === "annotated" && result.annotated_video_ready
+      ? annotatedVideoUrl(runId)
+      : videoUrl(runId);
 
   return (
     <div className="space-y-8">
@@ -162,28 +223,56 @@ export default function RunPage() {
                 label="Overstriding"
                 value={m.overstriding_count}
                 unit="events"
-                status={m.overstriding_count > 5 ? "warn" : m.overstriding_count > 0 ? "neutral" : "good"}
+                status={
+                  m.overstriding_count > 5
+                    ? "warn"
+                    : m.overstriding_count > 0
+                    ? "neutral"
+                    : "good"
+                }
                 description="Detected contacts"
               />
             </div>
           </div>
 
-          {/* Two-column layout: video + insights */}
+          {/* Video + insights */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="space-y-4">
-              <h2 className="text-sm font-semibold text-zinc-500 uppercase tracking-wider">
-                Video
-              </h2>
-              <VideoPlayer src={videoUrl(runId)} />
+            <div className="space-y-3">
+              {/* Section header with toggle */}
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-semibold text-zinc-500 uppercase tracking-wider">
+                  Video
+                </h2>
+                <VideoToggle
+                  mode={videoMode}
+                  onChange={setVideoMode}
+                  annotatedReady={result.annotated_video_ready}
+                />
+              </div>
+
+              {/* Player — key forces remount on src change so it loads fresh */}
+              <VideoPlayer key={activeSrc} src={activeSrc} />
+
+              {/* Annotated badge */}
+              {videoMode === "annotated" && result.annotated_video_ready && (
+                <div className="flex items-center gap-2 rounded-lg border border-emerald-800/40 bg-emerald-950/20 px-3 py-2 text-xs text-emerald-400">
+                  <Layers className="h-3.5 w-3.5 shrink-0" />
+                  Showing annotated video — skeleton overlay, live metrics HUD, and event markers.
+                </div>
+              )}
+
               {/* Video metadata */}
               {result.metadata?.duration_sec && (
                 <div className="flex gap-4 text-xs text-zinc-600">
                   <span>{formatTime(result.metadata.duration_sec)} duration</span>
                   <span>{result.metadata.fps?.toFixed(0)} fps</span>
-                  <span>{result.metadata.width}×{result.metadata.height}</span>
+                  <span>
+                    {result.metadata.width}×{result.metadata.height}
+                  </span>
                 </div>
               )}
             </div>
+
             <div className="space-y-4">
               <h2 className="text-sm font-semibold text-zinc-500 uppercase tracking-wider">
                 Coaching

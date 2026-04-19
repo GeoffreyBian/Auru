@@ -62,4 +62,5 @@ class RunResult(BaseModel):
     hip_y_over_time: list[TimeSeriesPoint] = Field(default_factory=list)
     left_ankle_y_over_time: list[TimeSeriesPoint] = Field(default_factory=list)
     right_ankle_y_over_time: list[TimeSeriesPoint] = Field(default_factory=list)
+    annotated_video_ready: bool = False
     error: str | None = None

@@ -85,3 +85,20 @@ async def stream_video(run_id: str, request: Request):
         raise HTTPException(status_code=404, detail=f"No video found for run_id={run_id!r}.")
 
     return _range_response(video_path, request)
+
+
+@router.get("/run/{run_id}/annotated-video", summary="Stream the annotated video for a run")
+async def stream_annotated_video(run_id: str, request: Request):
+    """Stream the annotated overlay video for *run_id*.
+
+    Returns 404 if annotation has not completed yet — poll
+    ``GET /run/{run_id}`` and check ``annotated_video_ready`` first.
+    """
+    annotated_path = VideoStore.path(run_id, extension="annotated.mp4")
+    if not annotated_path.exists():
+        raise HTTPException(
+            status_code=404,
+            detail="Annotated video not ready yet. Poll GET /run/{run_id} until annotated_video_ready=true.",
+        )
+
+    return _range_response(annotated_path, request)

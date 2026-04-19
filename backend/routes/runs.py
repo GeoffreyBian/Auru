@@ -78,4 +78,5 @@ async def get_run(run_id: str) -> RunResult:
         hip_y_over_time=_ts(data.get("hip_y_over_time", [])),
         left_ankle_y_over_time=_ts(data.get("left_ankle_y_over_time", [])),
         right_ankle_y_over_time=_ts(data.get("right_ankle_y_over_time", [])),
+        annotated_video_ready=data.get("annotated_video_ready", False),
     )

@@ -66,3 +66,7 @@ export async function getRun(runId: string): Promise<RunResult> {
 export function videoUrl(runId: string): string {
   return `${BASE_URL}/video/${runId}`;
 }
+
+export function annotatedVideoUrl(runId: string): string {
+  return `${BASE_URL}/run/${runId}/annotated-video`;
+}

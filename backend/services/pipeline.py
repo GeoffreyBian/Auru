@@ -1,13 +1,12 @@
 """End-to-end analysis pipeline.
 
 Orchestrates pose extraction → metrics computation → fatigue detection →
-coaching insights → output persistence.
+coaching insights → output persistence → video annotation.
 """
 
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 from typing import Any
 
 from .coaching import generate_insights
@@ -86,7 +85,7 @@ def run_pipeline(run_id: str, runner_height_m: float = 1.75) -> dict[str, Any]:
                     "time_sec": fatigue["fatigue_time_sec"],
                 }
             )
-        for frame in overstride_frames[:10]:  # cap at 10 events for UI clarity
+        for frame in overstride_frames[:10]:
             events.append(
                 {
                     "type": "overstride",
@@ -103,7 +102,7 @@ def run_pipeline(run_id: str, runner_height_m: float = 1.75) -> dict[str, Any]:
         }
         insights = generate_insights(metric_dict, fatigue, overstride_frames)
 
-        # 7. Assemble output
+        # 7. Assemble output — includes raw per-frame data needed for annotation
         result: dict[str, Any] = {
             "run_id": run_id,
             "status": "completed",
@@ -123,10 +122,28 @@ def run_pipeline(run_id: str, runner_height_m: float = 1.75) -> dict[str, Any]:
             "hip_y_over_time": hip_ts,
             "left_ankle_y_over_time": left_ankle_ts,
             "right_ankle_y_over_time": right_ankle_ts,
+            # Annotation data — per-frame landmarks and strike indices
+            "frame_landmarks": landmarks,
+            "foot_strike_left": cadence_result["left_peaks"],
+            "foot_strike_right": cadence_result["right_peaks"],
+            "overstride_frame_list": overstride_frames,
+            "annotated_video_ready": False,
         }
 
         OutputStore.save(run_id, result)
-        logger.info("Pipeline completed for run_id=%s", run_id)
+        logger.info("Analysis completed for run_id=%s — starting annotation", run_id)
+
+        # 8. Generate annotated video (uses saved landmarks; fast — no re-running pose)
+        try:
+            from .annotate import generate_annotated_video
+            generate_annotated_video(run_id)
+            result["annotated_video_ready"] = True
+            OutputStore.save(run_id, result)
+            logger.info("Annotation completed for run_id=%s", run_id)
+        except Exception as ann_exc:
+            logger.warning("Annotation failed for run_id=%s (non-critical): %s", run_id, ann_exc)
+            # Analysis results are still valid — annotation failure is non-fatal
+
         return result
 
     except Exception as exc:
