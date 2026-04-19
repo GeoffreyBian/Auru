@@ -15,17 +15,29 @@ from services.storage import OutputStore, VideoStore
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
-# Thread pool for running the CPU-bound CV pipeline without blocking the event loop
-_executor = ThreadPoolExecutor(max_workers=2)
+# Separate pools: analysis is heavier (MediaPipe), annotation is I/O + draw
+_analysis_executor  = ThreadPoolExecutor(max_workers=2, thread_name_prefix="analysis")
+_annotate_executor  = ThreadPoolExecutor(max_workers=2, thread_name_prefix="annotate")
 
 
 def _run_pipeline_sync(run_id: str, runner_height_m: float) -> None:
-    """Synchronous wrapper called inside the thread pool."""
     try:
         run_pipeline(run_id, runner_height_m)
     except Exception:
-        # Errors are persisted by the pipeline itself; just log here.
-        logger.exception("Background pipeline failed for run_id=%s", run_id)
+        logger.exception("Pipeline failed for run_id=%s", run_id)
+
+
+def _run_annotation_sync(run_id: str) -> None:
+    try:
+        from services.annotate import generate_annotated_video
+        generate_annotated_video(run_id)
+        data = OutputStore.load(run_id)
+        if data:
+            data["annotated_video_ready"] = True
+            OutputStore.save(run_id, data)
+        logger.info("Annotation completed for run_id=%s", run_id)
+    except Exception:
+        logger.exception("Annotation failed for run_id=%s (non-critical)", run_id)
 
 
 @router.post(
@@ -40,9 +52,11 @@ async def process_run(
 ) -> ProcessResponse:
     """Trigger the CV analysis pipeline for *run_id*.
 
-    Processing runs in a background thread so the response is returned
-    immediately.  Poll ``GET /run/{run_id}`` to check status and retrieve
-    results once ``status == "completed"``.
+    Runs in two sequential background stages:
+    1. Pose extraction + metrics (results visible via GET /run/{id} immediately after)
+    2. Annotated video generation (annotated_video_ready flips to true when done)
+
+    Poll ``GET /run/{run_id}`` until ``status == "completed"``.
     """
     if body is None:
         body = ProcessRequest()
@@ -54,16 +68,18 @@ async def process_run(
     if existing and existing.get("status") == "processing":
         raise HTTPException(status_code=409, detail="This run is already being processed.")
 
-    # Mark as processing immediately
     OutputStore.update_status(run_id, "processing")
 
-    # Offload the CPU-heavy pipeline to a thread
     loop = asyncio.get_event_loop()
-    loop.run_in_executor(
-        _executor,
-        _run_pipeline_sync,
-        run_id,
-        body.runner_height_m,
-    )
+
+    async def _run_both() -> None:
+        # Stage 1 — analysis: metrics visible to client as soon as this finishes
+        await loop.run_in_executor(_analysis_executor, _run_pipeline_sync, run_id, body.runner_height_m)
+        # Stage 2 — annotation: runs independently; client sees annotated_video_ready flip
+        data = OutputStore.load(run_id)
+        if data and data.get("status") == "completed":
+            await loop.run_in_executor(_annotate_executor, _run_annotation_sync, run_id)
+
+    asyncio.create_task(_run_both())
 
     return ProcessResponse(run_id=run_id, status=RunStatus.processing)

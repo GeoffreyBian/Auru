@@ -11,7 +11,7 @@ import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from routes import process_router, runs_router, upload_router, video_router
+from routes import process_router, runs_list_router, runs_router, upload_router, video_router
 
 logging.basicConfig(
     level=logging.INFO,
@@ -42,6 +42,7 @@ app.add_middleware(
 app.include_router(upload_router, tags=["Upload"])
 app.include_router(process_router, tags=["Processing"])
 app.include_router(runs_router, tags=["Runs"])
+app.include_router(runs_list_router, tags=["Runs"])
 app.include_router(video_router, tags=["Video"])
 
 

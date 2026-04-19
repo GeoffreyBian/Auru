@@ -86,3 +86,34 @@ class OutputStore:
         if error is not None:
             existing["error"] = error
         OutputStore.save(run_id, existing)
+
+    @staticmethod
+    def list_completed() -> list[dict[str, Any]]:
+        """Return summary dicts for all completed runs, newest first.
+
+        Each dict contains: run_id, created_at, duration_sec, cadence,
+        symmetry_score, annotated_video_ready.
+        """
+        summaries = []
+        for path in sorted(_OUTPUTS_DIR.glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True):
+            try:
+                data = json.loads(path.read_text())
+            except Exception:
+                continue
+            if data.get("status") != "completed":
+                continue
+            meta    = data.get("metadata", {})
+            metrics = data.get("metrics", {})
+            summaries.append({
+                "run_id":               path.stem,
+                "created_at":           data.get("created_at", path.stat().st_mtime),
+                "duration_sec":         meta.get("duration_sec"),
+                "fps":                  meta.get("fps"),
+                "cadence":              metrics.get("cadence"),
+                "symmetry_score":       metrics.get("symmetry_score"),
+                "vertical_oscillation": metrics.get("vertical_oscillation"),
+                "fatigue_time_sec":     metrics.get("fatigue_time_sec"),
+                "overstriding_count":   metrics.get("overstriding_count", 0),
+                "annotated_video_ready": data.get("annotated_video_ready", False),
+            })
+        return summaries

@@ -70,3 +70,22 @@ export function videoUrl(runId: string): string {
 export function annotatedVideoUrl(runId: string): string {
   return `${BASE_URL}/run/${runId}/annotated-video`;
 }
+
+export interface RunSummary {
+  run_id: string;
+  created_at: number;
+  duration_sec: number | null;
+  fps: number | null;
+  cadence: number | null;
+  symmetry_score: number | null;
+  vertical_oscillation: number | null;
+  fatigue_time_sec: number | null;
+  overstriding_count: number;
+  annotated_video_ready: boolean;
+}
+
+export async function listRuns(): Promise<RunSummary[]> {
+  const res = await fetch(`${BASE_URL}/runs`);
+  if (!res.ok) return [];
+  return res.json();
+}

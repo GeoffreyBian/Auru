@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import VideoUpload from "@/components/VideoUpload";
+import RecentRuns from "@/components/RecentRuns";
 import { processRun } from "@/lib/api";
 
 export default function HomePage() {
@@ -87,6 +88,8 @@ export default function HomePage() {
           ))}
         </div>
       </div>
+
+      <RecentRuns />
     </div>
   );
 }

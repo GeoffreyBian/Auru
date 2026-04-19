@@ -371,8 +371,15 @@ def generate_annotated_video(run_id: str) -> Path:
 
     # ── output writer ──────────────────────────────────────────────────────
     out_path = VideoStore.path(run_id, extension="annotated.mp4")
-    fourcc   = cv2.VideoWriter_fourcc(*"mp4v")
-    writer   = cv2.VideoWriter(str(out_path), fourcc, actual_fps, (width, height))
+    # avc1 = H.264, required for browser playback; falls back to mp4v on
+    # systems without a hardware encoder (video will still save, just not
+    # playable in all browsers without a re-encode step).
+    fourcc = cv2.VideoWriter_fourcc(*"avc1")
+    writer = cv2.VideoWriter(str(out_path), fourcc, actual_fps, (width, height))
+    if not writer.isOpened():
+        fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+        writer = cv2.VideoWriter(str(out_path), fourcc, actual_fps, (width, height))
+        logger.warning("avc1 unavailable — falling back to mp4v (may not play in all browsers)")
     if not writer.isOpened():
         cap.release()
         raise RuntimeError(f"Could not open VideoWriter for {out_path}")

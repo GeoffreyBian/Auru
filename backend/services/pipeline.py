@@ -7,6 +7,7 @@ coaching insights → output persistence → video annotation.
 from __future__ import annotations
 
 import logging
+import time
 from typing import Any
 
 from .coaching import generate_insights
@@ -128,22 +129,13 @@ def run_pipeline(run_id: str, runner_height_m: float = 1.75) -> dict[str, Any]:
             "foot_strike_right": cadence_result["right_peaks"],
             "overstride_frame_list": overstride_frames,
             "annotated_video_ready": False,
+            "created_at": time.time(),
         }
 
         OutputStore.save(run_id, result)
-        logger.info("Analysis completed for run_id=%s — starting annotation", run_id)
-
-        # 8. Generate annotated video (uses saved landmarks; fast — no re-running pose)
-        try:
-            from .annotate import generate_annotated_video
-            generate_annotated_video(run_id)
-            result["annotated_video_ready"] = True
-            OutputStore.save(run_id, result)
-            logger.info("Annotation completed for run_id=%s", run_id)
-        except Exception as ann_exc:
-            logger.warning("Annotation failed for run_id=%s (non-critical): %s", run_id, ann_exc)
-            # Analysis results are still valid — annotation failure is non-fatal
-
+        logger.info("Analysis completed for run_id=%s", run_id)
+        # Annotation is triggered separately by the process route so that
+        # metrics are immediately visible to the client via polling.
         return result
 
     except Exception as exc:
